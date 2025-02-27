@@ -1,5 +1,5 @@
 {
-  "domain": "xgimi",
+  "domain": "xgimi_media_player",
   "name": "Xgimi Projector Media Player",
   "version": "v0.0.8",
   "config_flow": true,
@@ -8,7 +8,7 @@
   "issue_tracker": "https://github.com/higoozu/Xgimi-4-Home-Assistant/issues",
   "requirements": ["asyncudp", "bluez-peripheral"],
   "codeowners": [
-    "@manymuch"
+    "@higoozu"
   ],
   "iot_class": "local_polling"
 }
