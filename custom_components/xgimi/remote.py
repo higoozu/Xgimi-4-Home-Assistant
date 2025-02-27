@@ -1,97 +1,120 @@
-"""Support for the Xgimi Projector."""
+import logging
+from homeassistant.components.media_player import MediaPlayerEntity, DEVICE_CLASS_TV
+from homeassistant.const import STATE_OFF, STATE_ON
 
-from collections.abc import Iterable
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_HOST, CONF_NAME, CONF_TOKEN
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .pyxgimi import XgimiApi
 
+_LOGGER = logging.getLogger(__name__)
 
-from homeassistant.components.remote import (
-    RemoteEntity,
-)
+async def async_setup_entry(hass, config_entry, async_add_entities):
+    """Set up the Xgimi media player from a config entry."""
+    ip = config_entry.data["host"]
+    token = config_entry.data["token"]
+    api = XgimiApi(ip=ip, command_port=16735, advance_port=16750, alive_port=554, manufacturer_data=token)
+    
+    # 创建媒体播放器实体
+    async_add_entities([XgimiMediaPlayer(api, config_entry.entry_id)])
 
-from .const import DOMAIN
+class XgimiMediaPlayer(MediaPlayerEntity):
+    """Representation of an Xgimi media player."""
 
-
-async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
-    """Set up the Xiaomi TV platform."""
-
-    # If a hostname is set. Discovery is skipped.
-    host = config.get(CONF_HOST)
-    name = config.get(CONF_NAME)
-    token = config.get(CONF_TOKEN)
-    unique_id = f"{name}-{token}"
-
-    xgimi_api = XgimiApi(ip=host, command_port=16735, advance_port=16750, alive_port=554,
-                         manufacturer_data=token)
-    async_add_entities([XgimiRemote(xgimi_api, name, unique_id)])
-
-
-async def async_setup_entry(
-    hass: HomeAssistant,
-    config_entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
-) -> None:
-    config = hass.data[DOMAIN][config_entry.entry_id]
-    host = config[CONF_HOST]
-    name = config[CONF_NAME]
-    token = config[CONF_TOKEN]
-
-    unique_id = config_entry.unique_id
-    assert unique_id is not None
-
-    xgimi_api = XgimiApi(ip=host, command_port=16735, advance_port=16750, alive_port=554,
-                         manufacturer_data=token)
-    async_add_entities([XgimiRemote(xgimi_api, name, unique_id)])
-
-
-class XgimiRemote(RemoteEntity):
-    """An entity for Xgimi Projector
-    """
-
-    def __init__(self, xgimi_api, name, unique_id):
-        self.xgimi_api = xgimi_api
-        self._name = name
-        self._icon = "mdi:projector"
-        self._unique_id = unique_id
-
-    async def async_update(self):
-        """Retrieve latest state."""
-        await self.xgimi_api.async_fetch_data()
-
-    @property
-    def is_on(self):
-        """Return true if remote is on."""
-        return self.xgimi_api._is_on
-
-    @property
-    def name(self):
-        """Return the name of the device if any."""
-        return self._name
-
-    @property
-    def icon(self):
-        """Return the icon to use for device if any."""
-        return self._icon
+    def __init__(self, api: XgimiApi, entry_id):
+        """Initialize the media player."""
+        self._api = api
+        self._entry_id = entry_id
+        self._state = STATE_OFF
+        self._name = "Xgimi Projector"
 
     @property
     def unique_id(self):
-        """Return an unique ID."""
-        return self._unique_id
+        """Return a unique ID."""
+        return f"xgimi_{self._entry_id}"
 
-    async def async_turn_on(self, **kwargs):
-        """Turn the Xgimi Projector On."""
-        # Do the turning on.
-        await self.xgimi_api.async_send_command("poweron")
+    @property
+    def name(self):
+        """Return the name of the device."""
+        return self._name
 
-    async def async_turn_off(self, **kwargs):
-        """Turn the Xgimi Projector Off."""
-        # Do the turning off.
-        await self.xgimi_api.async_send_command("poweroff")
+    @property
+    def state(self):
+        """Return the state of the device."""
+        return self._state
 
-    async def async_send_command(self, command: Iterable[str], **kwargs) -> None:
-        """Send a command to one of the devices."""
-        for single_command in command:
-            await self.xgimi_api.async_send_command(single_command)
+    @property
+    def device_class(self):
+        """Return the device class of the media player."""
+        return DEVICE_CLASS_TV
+
+    @property
+    def supported_features(self):
+        """Flag media player features that are supported."""
+        from homeassistant.components.media_player.const import (
+            SUPPORT_TURN_ON,
+            SUPPORT_TURN_OFF,
+            SUPPORT_PLAY,
+            SUPPORT_PAUSE,
+            SUPPORT_VOLUME_STEP,
+            SUPPORT_VOLUME_MUTE,
+            SUPPORT_PREVIOUS_TRACK,
+            SUPPORT_NEXT_TRACK,
+        )
+        return (
+            SUPPORT_TURN_ON
+            | SUPPORT_TURN_OFF
+            | SUPPORT_PLAY
+            | SUPPORT_PAUSE
+            | SUPPORT_VOLUME_STEP
+            | SUPPORT_VOLUME_MUTE
+            | SUPPORT_PREVIOUS_TRACK
+            | SUPPORT_NEXT_TRACK
+        )
+
+    async def async_update(self):
+        """Fetch new state data for this media player."""
+        await self._api.async_fetch_data()
+        self._state = STATE_ON if self._api.is_on else STATE_OFF
+
+    async def async_turn_on(self):
+        """Turn the media player on."""
+        await self._api.async_send_command("poweron")
+        self._state = STATE_ON
+
+    async def async_turn_off(self):
+        """Turn the media player off."""
+        await self._api.async_send_command("poweroff")
+        self._state = STATE_OFF
+
+    async def async_play_media(self, media_type, media_id, **kwargs):
+        """Play media (mapped to play command)."""
+        await self._api.async_send_command("play")
+        self._state = STATE_ON
+
+    async def async_media_play(self):
+        """Play the media player."""
+        await self._api.async_send_command("play")
+        self._state = STATE_ON
+
+    async def async_media_pause(self):
+        """Pause the media player."""
+        await self._api.async_send_command("pause")
+        self._state = STATE_ON
+
+    async def async_volume_up(self):
+        """Increase the volume."""
+        await self._api.async_send_command("volumeup")
+
+    async def async_volume_down(self):
+        """Decrease the volume."""
+        await self._api.async_send_command("volumedown")
+
+    async def async_mute_volume(self, mute):
+        """Mute the volume."""
+        await self._api.async_send_command("volumemute")
+
+    async def async_media_previous_track(self):
+        """Send back command (mapped to left)."""
+        await self._api.async_send_command("left")
+
+    async def async_media_next_track(self):
+        """Send next command (mapped to right)."""
+        await self._api.async_send_command("right")
