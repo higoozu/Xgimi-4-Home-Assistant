@@ -1,4 +1,4 @@
-"""Xgimi Projector Integration"""
+"""Xgimi Media Player Integration"""
 from __future__ import annotations
 
 from typing import Final
@@ -9,8 +9,9 @@ from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN
 
+# 将平台从 REMOTE 改为 MEDIA_PLAYER
 PLATFORMS: Final[list[Platform]] = [
-    Platform.REMOTE,
+    Platform.MEDIA_PLAYER,
 ]
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
@@ -22,6 +23,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
 
     hass.data[DOMAIN][config_entry.entry_id] = config
 
+    # 设置 media_player 平台
     await hass.config_entries.async_forward_entry_setups(config_entry, PLATFORMS)
 
     return True

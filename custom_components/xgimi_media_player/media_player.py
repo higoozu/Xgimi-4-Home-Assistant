@@ -12,7 +12,6 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     token = config_entry.data["token"]
     api = XgimiApi(ip=ip, command_port=16735, advance_port=16750, alive_port=554, manufacturer_data=token)
     
-    # 创建媒体播放器实体
     async_add_entities([XgimiMediaPlayer(api, config_entry.entry_id)])
 
 class XgimiMediaPlayer(MediaPlayerEntity):
@@ -85,7 +84,7 @@ class XgimiMediaPlayer(MediaPlayerEntity):
         self._state = STATE_OFF
 
     async def async_play_media(self, media_type, media_id, **kwargs):
-        """Play media (mapped to play command)."""
+        """Play media."""
         await self._api.async_send_command("play")
         self._state = STATE_ON
 
@@ -112,9 +111,9 @@ class XgimiMediaPlayer(MediaPlayerEntity):
         await self._api.async_send_command("volumemute")
 
     async def async_media_previous_track(self):
-        """Send back command (mapped to left)."""
+        """Send back command."""
         await self._api.async_send_command("left")
 
     async def async_media_next_track(self):
-        """Send next command (mapped to right)."""
+        """Send next command."""
         await self._api.async_send_command("right")
